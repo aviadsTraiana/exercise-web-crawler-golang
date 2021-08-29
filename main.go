@@ -51,29 +51,39 @@ func (f *FetcherCache) Fetch(url string) (body string, urls []string, err error)
 // Crawl uses fetcher to recursively crawl
 // pages starting with url, to a maximum of depth.
 func Crawl(url string, depth int, fetcher Fetcher) {
-	// TODO: Fetch URLs in parallel.
-	// TODO: Don't fetch the same URL twice.
-	// This implementation doesn't do either:
-	if depth <= 0 {
-		return
+	// TODO: Fetch URLs in parallel.				 [DONE]
+	// TODO: Don't fetch the same URL twice. [DONE]
+	var waitGroup sync.WaitGroup
+
+	var recCrawl func(url string, depth int)
+	recCrawl = func(url string, depth int) {
+		defer waitGroup.Done()
+		if depth <= 0 {
+			return
+		}
+		body, urls, err := fetcher.Fetch(url)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Printf("found: %s %q\n", url, body)
+		for _, u := range urls {
+			waitGroup.Add(1)
+			go recCrawl(u, depth-1)
+		}
 	}
-	body, urls, err := fetcher.Fetch(url)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Printf("found: %s %q\n", url, body)
-	for _, u := range urls {
-		go Crawl(u, depth-1, fetcher)
-	}
+	waitGroup.Add(1)
+	go recCrawl(url, depth)
+	waitGroup.Wait()
 	return
 }
 
 func main() {
-	Crawl("https://golang.org/", 4, &FetcherCache{
-		Delegator: fetcher,
-		Cache:     make(map[URL]*FetchResult),
-	})
+	Crawl("https://golang.org/", 4, //fetcher)
+		&FetcherCache{
+			Delegator: fetcher,
+			Cache:     make(map[URL]*FetchResult),
+		})
 }
 
 // fakeFetcher is Fetcher that returns canned results.
