@@ -25,27 +25,27 @@ type URL = string
 //FetcherCache is a Cache to Fetch results faster, using the Proxy Pattern
 type FetcherCache struct {
 	//Delegator is the Fetcher that is being cached
-	Delegator *Fetcher
+	Delegator Fetcher
 	//Cache mapping between a Url to a FetchResult
 	Cache map[URL]*FetchResult
 	lock  sync.Mutex
 }
 
 //Fetch is a implementation for FecherCache
-func (f FetcherCache) Fetch(url string) (body string, urls []string, err error) {
+func (f *FetcherCache) Fetch(url string) (body string, urls []string, err error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	fetchResult, isCached := f.Cache[url]
 	if isCached {
 		return fetchResult.body, fetchResult.urls, fetchResult.err
 	}
-	v := f.Delegator.Fetch(url)
+	b, urls, err := f.Delegator.Fetch(url)
 	f.Cache[url] = &FetchResult{
-		body: v.body,
-		urls: v.urls,
-		err:  v.err,
+		body: b,
+		urls: urls,
+		err:  err,
 	}
-	return v
+	return b, urls, err
 }
 
 // Crawl uses fetcher to recursively crawl
@@ -70,8 +70,8 @@ func Crawl(url string, depth int, fetcher Fetcher) {
 }
 
 func main() {
-	Crawl("https://golang.org/", 4, FetcherCache{
-		Delegator: &fetcher,
+	Crawl("https://golang.org/", 4, &FetcherCache{
+		Delegator: fetcher,
 		Cache:     make(map[URL]*FetchResult),
 	})
 }
