@@ -72,6 +72,7 @@ func Crawl(url string, depth int, fetcher Fetcher) {
 			go recCrawl(u, depth-1)
 		}
 	}
+	waitGroup.Add(1)
 	recCrawl(url, depth)
 	waitGroup.Wait()
 	return
