@@ -51,8 +51,8 @@ func (f *FetcherCache) Fetch(url string) (body string, urls []string, err error)
 // Crawl uses fetcher to recursively crawl
 // pages starting with url, to a maximum of depth.
 func Crawl(url string, depth int, fetcher Fetcher) {
-	// TODO: Fetch URLs in parallel.				 [DONE]
-	// TODO: Don't fetch the same URL twice. [DONE]
+	// Fetch URLs in parallel.				 [DONE]
+	// Don't fetch the same URL twice. [DONE]
 	var waitGroup sync.WaitGroup
 
 	var recCrawl func(url string, depth int)
@@ -72,8 +72,7 @@ func Crawl(url string, depth int, fetcher Fetcher) {
 			go recCrawl(u, depth-1)
 		}
 	}
-	waitGroup.Add(1)
-	go recCrawl(url, depth)
+	recCrawl(url, depth)
 	waitGroup.Wait()
 	return
 }
