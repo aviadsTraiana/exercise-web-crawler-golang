@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 )
 
 //Fetcher is an abstraction for Fetching content from urls
@@ -9,6 +10,42 @@ type Fetcher interface {
 	// Fetch returns the body of URL and
 	// a slice of URLs found on that page.
 	Fetch(url string) (body string, urls []string, err error)
+}
+
+//FetchResult is a wrapper over the Fetch result
+type FetchResult struct {
+	body string
+	urls []string
+	err  error
+}
+
+//URL is an alias for readbility to a string of a url
+type URL = string
+
+//FetcherCache is a Cache to Fetch results faster, using the Proxy Pattern
+type FetcherCache struct {
+	//Delegator is the Fetcher that is being cached
+	Delegator *Fetcher
+	//Cache mapping between a Url to a FetchResult
+	Cache map[URL]*FetchResult
+	lock  sync.Mutex
+}
+
+//Fetch is a implementation for FecherCache
+func (f FetcherCache) Fetch(url string) (body string, urls []string, err error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	fetchResult, isCached := f.Cache[url]
+	if isCached {
+		return fetchResult.body, fetchResult.urls, fetchResult.err
+	}
+	v := f.Delegator.Fetch(url)
+	f.Cache[url] = &FetchResult{
+		body: v.body,
+		urls: v.urls,
+		err:  v.err,
+	}
+	return v
 }
 
 // Crawl uses fetcher to recursively crawl
@@ -27,13 +64,16 @@ func Crawl(url string, depth int, fetcher Fetcher) {
 	}
 	fmt.Printf("found: %s %q\n", url, body)
 	for _, u := range urls {
-		Crawl(u, depth-1, fetcher)
+		go Crawl(u, depth-1, fetcher)
 	}
 	return
 }
 
 func main() {
-	Crawl("https://golang.org/", 4, fetcher)
+	Crawl("https://golang.org/", 4, FetcherCache{
+		Delegator: &fetcher,
+		Cache:     make(map[URL]*FetchResult),
+	})
 }
 
 // fakeFetcher is Fetcher that returns canned results.
